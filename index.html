@@ -597,11 +597,11 @@
 
     async function fetchAllSupabaseData() {
         globalMatchesData = [];
-        // Hier korrigieren wir die Zuordnung der Supabase-Tabellen für die jeweiligen Mannschaften:
+        // Hier ist die Zuordnung korrigiert: 'spieltage' gehört zur 3. Mannschaft!
         const teamConfigs = [
-            { name: "1. Mannschaft", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
+            { name: "3. Mannschaft", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
             { name: "2. Mannschaft", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
-            { name: "3. Mannschaft", tableSpieltage: "spieltage_t3", tableMatches: "matches_t3", tableScoring: "scoring_stats_t3" },
+            { name: "1. Mannschaft", tableSpieltage: "spieltage_t1", tableMatches: "matches_t1", tableScoring: "scoring_stats_t1" },
             { name: "4. Mannschaft", tableSpieltage: "spieltage_t4", tableMatches: "matches_t4", tableScoring: "scoring_stats_t4" }
         ];
 
@@ -611,7 +611,7 @@
                     .from(cfg.tableSpieltage)
                     .select(`*, ${cfg.tableMatches} (*, ${cfg.tableScoring} (*))`);
 
-                if (error) throw error;
+                if (error) continue; // Falls eine Tabelle nicht existiert, überspringen ohne abzustürzen
 
                 if (data) {
                     data.forEach(st => {
