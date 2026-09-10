@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Kapellen 1919 e.V. — Spieler-Dashboard (Supabase Live)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --accent-orange: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --green: #22c55e;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --highlight-yellow: #facc15;
+            --highlight-green-bg: rgba(34, 197, 94, 0.2);
+            --highlight-green-text: #4ade80;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .app-sync-info {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px dashed var(--border-color);
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .login-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            text-align: center;
+            margin-top: 40px;
+        }
+
+        .login-card h2 { margin-top: 0; color: var(--accent-orange); }
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent-orange);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+
+        #dashboardView { display: none; }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .dashboard-header h1 {
+            font-size: 1.4rem;
+            margin: 0;
+            color: var(--accent-orange);
+        }
+
+        .header-buttons { display: flex; gap: 8px; }
+
+        .admin-filter-bar {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-filter-bar label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: var(--accent-orange);
+            white-space: nowrap;
+        }
+
+        .team-section-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--accent-orange);
+            margin: 25px 0 12px 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-left: 3px solid var(--accent-orange);
+            padding-left: 8px;
+        }
+
+        .player-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            margin-bottom: 24px;
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .player-header-info { flex: 1; }
+
+        .player-images-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .card-player-photo {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-orange);
+            background: #0f172a;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .card-player-logo {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            object-fit: contain;
+            border: 2px solid var(--accent-orange);
+            background: #0f172a;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            padding: 4px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .player-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            letter-spacing: -0.5px;
+        }
+
+        .player-club {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .player-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .stats-section {
+            background-color: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+
+        .stats-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+            margin-bottom: 14px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 6px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-box label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+        }
+
+        .stat-value.highlight-bg {
+            background-color: var(--accent-orange);
+            color: #000;
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 6px;
+        }
+
+        .win-bilanz { color: var(--green); }
+        .loss-bilanz { color: var(--red); }
+        .diff-pos { color: var(--green); font-size: 0.85rem; }
+        .diff-neg { color: var(--red); font-size: 0.85rem; }
+        .diff-zero { color: var(--text-muted); font-size: 0.85rem; }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .progress-fill-green { height: 100%; background-color: var(--green); }
+        .progress-fill-blue { height: 100%; background-color: var(--blue); }
+
+        .highlights-box {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: rgba(245, 158, 11, 0.05);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 16px;
+            text-align: center;
+        }
+
+        .highlight-item span { display: block; font-size: 0.65rem; color: var(--text-muted); }
+        .highlight-item strong { font-size: 1rem; color: var(--accent-orange); }
+
+        .shortlegs-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            justify-content: center;
+            margin-top: 2px;
+        }
+
+        .shortleg-badge {
+            font-size: 0.85rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-weight: bold;
+        }
+
+        .shortleg-badge.best-shortleg {
+            background: var(--highlight-green-bg);
+            border: 1px solid rgba(74, 222, 128, 0.5);
+            color: var(--highlight-green-text);
+            font-size: 0.95rem;
+        }
+
+        .scores-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+            text-align: center;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .score-box span { display: block; font-size: 0.65rem; color: var(--text-muted); }
+        .score-box strong { font-size: 0.95rem; color: var(--text-main); }
+
+        .score-box.highlight-140 {
+            background: rgba(250, 204, 21, 0.15);
+            border: 1px solid rgba(250, 204, 21, 0.4);
+            border-radius: 8px;
+        }
+        .score-box.highlight-140 span { color: #fef08a; font-weight: bold; }
+        .score-box.highlight-140 strong { color: var(--highlight-yellow); font-size: 1.1rem; }
+
+        .history-list {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .history-badge {
+            min-width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        .history-win { background-color: var(--green); }
+        .history-loss { background-color: var(--red); }
+
+        .game-highlights-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .game-highlight-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 0.8rem;
+        }
+        .game-highlight-card.best { border-color: rgba(34, 197, 94, 0.4); }
+        .game-highlight-card.worst { border-color: rgba(239, 68, 68, 0.4); }
+        .game-highlight-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        .game-highlight-card.best .game-highlight-title { color: var(--green); }
+        .game-highlight-card.worst .game-highlight-title { color: var(--red); }
+
+        .action-btn {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .action-btn:hover { color: var(--text-main); border-color: var(--text-main); background: rgba(255,255,255,0.05); }
+        .action-btn.refresh-btn { color: var(--accent-orange); border-color: rgba(245, 158, 11, 0.4); }
+        .action-btn.refresh-btn:hover { background: rgba(245, 158, 11, 0.1); border-color: var(--accent-orange); }
+
+        @media (max-width: 500px) {
+            .card-player-photo { width: 50px; height: 50px; }
+            .card-player-logo { height: 45px; }
+            .player-name { font-size: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="app-sync-info">⚡ Supabase Live-Datenpflege: Jürgen Schützendorf</div>
+
+    <!-- LOGIN FORMULAR -->
+    <div id="loginCard" class="login-card">
+        <h2>Spieler-Login</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Bitte wähle deinen Namen aus und gib dein Passwort ein.</p>
+        
+        <div class="form-group">
+            <label for="playerSelect">Spieler / Mannschaft</label>
+            <select id="playerSelect" class="form-control">
+                <option value="">-- Bitte wählen --</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="playerPassword">Passwort</label>
+            <input type="password" id="playerPassword" class="form-control" placeholder="Passwort eingeben...">
+        </div>
+
+        <button class="btn" onclick="handleLogin()">Einloggen</button>
+        <div id="loginError" style="color: var(--red); font-size: 0.8rem; margin-top: 10px; display: none;">Falsches Passwort!</div>
+    </div>
+
+    <!-- DASHBOARD ANSICHT -->
+    <div id="dashboardView">
+        <div class="dashboard-header">
+            <h1 id="dashboardTitle">Übersicht</h1>
+            <div class="header-buttons">
+                <button id="refreshBtn" class="action-btn refresh-btn" onclick="refreshData()">🔄 Aktualisieren</button>
+                <button class="action-btn" onclick="logout()">Abmelden</button>
+            </div>
+        </div>
+
+        <!-- MANNSCHAFTS- FILTERLEISTE -->
+        <div id="adminFilterContainer" class="admin-filter-bar" style="display: none;">
+            <label for="adminTeamFilter" id="adminFilterLabel">🎯 Ansicht filtern:</label>
+            <select id="adminTeamFilter" class="form-control" style="margin-bottom: 0;" onchange="renderDashboard(sessionStorage.getItem('tvk_logged_in_user'))">
+            </select>
+        </div>
+        
+        <div id="cardsContainer"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    const SUPABASE_URL = 'https://lhusylpjnujlqomougmg.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_yXEuEWilVAq-Vm2VfTuYyg_BiQeE...';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const PLAYER_PHOTOS = {
+        "Jürgen Schützendorf": "https://lh3.googleusercontent.com/d/1IF9JrhoF1wUBtPevVk_CLOvAQEQH1d-9",
+        "Niklas Weichert": "https://lh3.googleusercontent.com/d/15mwSRpiPHz_2An_30pRs_Qqf23AdNenV",
+        "Tim Siegel": "https://lh3.googleusercontent.com/d/1pLJfNcg0mbiD_oekUyaY75GyfmqhkuWP",
+        "Michael Müller": "https://lh3.googleusercontent.com/d/1x9IKSWgfiiODVOADdM8qZTxgEipGEm5s",
+        "Markus Lenz": "https://lh3.googleusercontent.com/d/1a_ENDAzcJo0i-jxLXTvgcunwLvlPVx_G",
+        "Florian Hartwich": "https://lh3.googleusercontent.com/d/1Fd5b3EglQGXHcqdYo4tw2D7gGTHudAJA",
+        "Robert Geyer": "https://lh3.googleusercontent.com/d/1KtW5FAmvJsWIi2yMSb0d81UdKicJ0R-E",
+        "Patrick Seitz": "https://lh3.googleusercontent.com/d/1K1NjxwcGhpuqpkfQBw35xatz2SkSmZhV",
+        "Sascha Bien": "https://lh3.googleusercontent.com/d/1S8d0y6Lm57SSF0MLE5gCK4WnqanJrOEI",
+        "Britta Roghmans": "https://lh3.googleusercontent.com/d/1eDQ2XCDlUI2NmzBaTHwjsISrgS8E9AUT",
+        "Joel Wielinski": "https://lh3.googleusercontent.com/d/1ErNh5tHm3_aEYkZLzgjEP9-12Fqo2amJ",
+        "Markus Ginsel": "https://lh3.googleusercontent.com/d/1t9eroAXRqOMBF6cmNGoGwwvIBiJ844Bs",
+        "Wolfram Senger": "https://lh3.googleusercontent.com/d/1nRXHIQ4RdKDjqQAVaKdu35MebVwHqNym",
+        "Ludger Schledorn": "https://lh3.googleusercontent.com/d/1lmbrgR7Tb3H--GNleAzWhZAYgf3td9Or",
+        "Andreas Denner": "https://lh3.googleusercontent.com/d/1enL1MhM-tvPgYYKJ9jADAJodMPYHXzkj",
+        "Lars Neutag": "https://lh3.googleusercontent.com/d/1WkeKi_TtHHorTGR5mp-0UO7H4fWaiBbr",
+        "Philip Möller": "https://lh3.googleusercontent.com/d/1b6CtYd29a7_4pqxSG8fHcmkL9EJhZkRe",
+        "Mark Bock": "https://lh3.googleusercontent.com/d/1x4gN7GBYkJPxZCwncq701cQPYCzgr7jS",
+        "Thomas Kliver": "https://lh3.googleusercontent.com/d/1zFmJSNqcnOk_2H3tldsjqUsA5Gykm2sW",
+        "Holger Weberpold": "https://lh3.googleusercontent.com/d/1CHk9oTwatEy5UkTg-Dwcr_i20xKU4ON3",
+        "Yannick Steffes": "https://lh3.googleusercontent.com/d/1HxX73a-yTuczFHb-ek1SfPbeSsOY2w99",
+        "Dominik Herz": "https://lh3.googleusercontent.com/d/1gHWXrNdODDh5NaK61WFWbnIF62NliYmT",
+        "Leon Gerber": "https://lh3.googleusercontent.com/d/1ZCD1ykCoGZBX0nj4U9GhkqxxPIdp_OS5",
+        "Markus Thiele": "https://lh3.googleusercontent.com/d/1QIpVZ6JjlkEPPI6F7qL0CGflda5YiIDJ",
+        "Gregor Marek": "https://lh3.googleusercontent.com/d/1kO1iMKpP4o1SM0BYcVzY3lTeXKeoGHjB",
+        "Thomas Franzen": "https://lh3.googleusercontent.com/d/1D4Gzx455Q1KfubjA_aSzi4WXMby7mfpU",
+        "Florian Weindorf": "https://lh3.googleusercontent.com/d/12WLJxyELJEkCnZJUBeDOZ5YVttZuqRoM"
+    };
+
+    const LOGO_URL = "https://lh3.googleusercontent.com/d/1PB4X2QrrMlaRlajQEWDtJxRP2c6VTsI5";
+    const DEFAULT_AVATAR = "https://lh3.googleusercontent.com/d/1rc673IU4jw2wEE--AIDUS-AfTCmDG9Tw";
+
+    const playersData = {
+        "admin": { name: "Jürgen Schützendorf", mainTeam: "3. Mannschaft", password: "admin", isAdmin: true, isTC: false },
+        "juergen_s": { name: "Jürgen Schützendorf", mainTeam: "3. Mannschaft", password: "2807", isAdmin: false, isTC: true },
+        "weichert_n": { name: "Niklas Weichert", mainTeam: "3. Mannschaft", password: "003", isAdmin: false, isTC: false },
+        "senger_w": { name: "Wolfram Senger", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "ludger_s": { name: "Ludger Schledorn", mainTeam: "3. Mannschaft", password: "6767", isAdmin: false, isTC: false },
+        "thomas_k": { name: "Thomas Kliver", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "markus_g": { name: "Markus Ginsel", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: true },
+        "andreas_d": { name: "Andreas Denner", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "markus_l": { name: "Markus Lenz", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "florian_h": { name: "Florian Hartwich", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "michael_m": { name: "Michael Müller", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "lars_n": { name: "Lars Neutag", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "yannik_s": { name: "Yannick Steffes", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "leon_g": { name: "Leon Gerber", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "gregor_m": { name: "Gregor Marek", mainTeam: "3. Mannschaft", password: "0003", isAdmin: false, isTC: false },
+        "patrick_s": { name: "Patrick Seitz", mainTeam: "1. Mannschaft", password: "4711", isAdmin: false, isTC: true },
+        "tim_s": { name: "Tim Siegel", mainTeam: "1. Mannschaft", password: "0000", isAdmin: false, isTC: false },
+        "sascha_b": { name: "Sascha Bien", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "dominik_h": { name: "Dominik Helmke", mainTeam: "1. Mannschaft", password: "2508", isAdmin: false, isTC: false },
+        "stefan_m": { name: "Stefan Melcher", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "jan_k": { name: "Jan Krabbe", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "fabio_p": { name: "Fabio Padovano", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "dirk_k": { name: "Dirk Kraus", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "robert_g": { name: "Robert Geyer", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "joel_w": { name: "Joel Wielinski", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "denis_v": { name: "Denis Vanzidler", mainTeam: "1. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "florian_w": { name: "Florian Weindorf", mainTeam: "2. Mannschaft", password: "0001", isAdmin: false, isTC: false },
+        "daniel_s": { name: "Daniel Simanowitz", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "danny_v": { name: "Danny Voß", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "markus_e": { name: "Markus Elgersma", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "markus_t": { name: "Markus Thiele", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "christian_s": { name: "Christian Schreiber", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "dominik_herz": { name: "Dominik Herz", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "thomas_f": { name: "Thomas Franzen", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: true },
+        "philip_m": { name: "Philip Möller", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: true },
+        "holger_w": { name: "Holger Weberpold", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "andre_p": { name: "Andre Pogoda", mainTeam: "2. Mannschaft", password: "0002", isAdmin: false, isTC: false },
+        "britta_r": { name: "Britta Roghmans", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: true },
+        "scott_j": { name: "Scott Jonen", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "bjoern_m": { name: "Björn Mentzen", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "lars_h": { name: "Lars Hufen", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "jesper_n": { name: "Jesper Neutag", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "brian_m": { name: "Brian Müller", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "leon_o": { name: "Leon Overmann", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "mark_b": { name: "Mark Bock", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "dirk_g": { name: "Dirk Grunert", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "friedhelm_s": { name: "Friedhelm Schmidt-Cremer", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "lucas_m": { name: "Lucas Mentzen", mainTeam: "4. Mannschaft", password: "0004", isAdmin: false, isTC: false },
+        "holger_o": { name: "Holger Overmeyer", mainTeam: "3. Mannschaft", password: "1921", isAdmin: true, isTC: false }
+    };
+
+    let globalMatchesData = [];
+
+    window.onload = async function() {
+        const savedLoginKey = sessionStorage.getItem("tvk_logged_in_user");
+        populatePlayerDropdown();
+
+        await fetchAllSupabaseData();
+
+        if (savedLoginKey && playersData[savedLoginKey]) {
+            document.getElementById("loginCard").style.display = "none";
+            document.getElementById("dashboardView").style.display = "block";
+            setupFilterDropdown(savedLoginKey);
+            renderDashboard(savedLoginKey);
+        }
+    };
+
+    function populatePlayerDropdown() {
+        const select = document.getElementById("playerSelect");
+        select.innerHTML = '<option value="">-- Bitte wählen --</option>';
+        const teams = ["1. Mannschaft", "2. Mannschaft", "3. Mannschaft", "4. Mannschaft", "Admin"];
+        
+        teams.forEach(teamName => {
+            const groupPlayers = Object.entries(playersData).filter(([key, p]) => {
+                if (teamName === "Admin") return p.isAdmin;
+                return p.mainTeam === teamName && !p.isAdmin;
+            });
+
+            if (groupPlayers.length > 0) {
+                let optgroup = document.createElement("optgroup");
+                optgroup.label = teamName === "Admin" ? "Administration" : teamName;
+                groupPlayers.forEach(([key, player]) => {
+                    let option = document.createElement("option");
+                    option.value = key;
+                    option.textContent = player.name + (player.isAdmin ? " (Admin)" : (player.isTC ? " (TC)" : ""));
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+        });
+    }
+
+    async function fetchAllSupabaseData() {
+        globalMatchesData = [];
+        const teamConfigs = [
+            { name: "1. Mannschaft", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
+            { name: "2. Mannschaft", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
+            { name: "3. Mannschaft", tableSpieltage: "spieltage_t3", tableMatches: "matches_t3", tableScoring: "scoring_stats_t3" },
+            { name: "4. Mannschaft", tableSpieltage: "spieltage_t4", tableMatches: "matches_t4", tableScoring: "scoring_stats_t4" }
+        ];
+
+        for (const cfg of teamConfigs) {
+            try {
+                // Lade Spieltage inklusive Matches und Scoring-Stats über Foreign Key Beziehungen
+                const { data, error } = await supabaseClient
+                    .from(cfg.tableSpieltage)
+                    .select(`*, ${cfg.tableMatches} (*, ${cfg.tableScoring} (*))`);
+
+                if (error) throw error;
+
+                if (data) {
+                    data.forEach(st => {
+                        let matchesList = st[cfg.tableMatches] || [];
+                        matchesList.forEach(m => {
+                            let scoring = (m[cfg.tableScoring] && m[cfg.tableScoring].length > 0) ? m[cfg.tableScoring][0] : {};
+                            
+                            globalMatchesData.push({
+                                mannschaft: cfg.name,
+                                spieltag: st.spieltag_nummer ? st.spieltag_nummer.toString() : "",
+                                datum: st.datum || "",
+                                gegnerMannschaft: st.gegner_team || "",
+                                block: m.block_name || "",
+                                spielerKapellen: m.spieler_kapellen || "",
+                                gegnerName: m.gegner_name || "",
+                                ergebnisSpiel: m.ergebnis || "",
+                                avg: m.avg ? m.avg.toString() : "",
+                                darts: m.darts || "",
+                                r180er: scoring.score_180 ? scoring.score_180.toString() : "0",
+                                hf: scoring.high_finish ? scoring.high_finish.toString() : "0",
+                                s60: scoring.score_60 ? scoring.score_60.toString() : "0",
+                                s80: scoring.score_80 ? scoring.score_80.toString() : "0",
+                                s100: scoring.score_100 ? scoring.score_100.toString() : "0",
+                                s140: scoring.score_140 ? scoring.score_140.toString() : "0"
+                            });
+                        });
+                    });
+                }
+            } catch (err) {
+                console.log(`Konnte Daten für ${cfg.name} aus Supabase nicht laden:`, err);
+            }
+        }
+    }
+
+    async function refreshData() {
+        const btn = document.getElementById("refreshBtn");
+        btn.textContent = "⏳ Lade...";
+        btn.disabled = true;
+
+        await fetchAllSupabaseData();
+
+        const savedLoginKey = sessionStorage.getItem("tvk_logged_in_user");
+        if (savedLoginKey && playersData[savedLoginKey]) {
+            renderDashboard(savedLoginKey);
+        }
+
+        btn.textContent = "🔄 Aktualisieren";
+        btn.disabled = false;
+    }
+
+    function handleLogin() {
+        const selectedKey = document.getElementById("playerSelect").value;
+        const passwordInput = document.getElementById("playerPassword").value;
+        const errorDiv = document.getElementById("loginError");
+
+        if (!selectedKey || !playersData[selectedKey]) {
+            errorDiv.textContent = "Bitte wähle einen Spieler aus.";
+            errorDiv.style.display = "block";
+            return;
+        }
+
+        const player = playersData[selectedKey];
+        
+        if (passwordInput === player.password || (player.isAdmin && passwordInput === "admin")) {
+            errorDiv.style.display = "none";
+            sessionStorage.setItem("tvk_logged_in_user", selectedKey);
+
+            document.getElementById("loginCard").style.display = "none";
+            document.getElementById("dashboardView").style.display = "block";
+            
+            setupFilterDropdown(selectedKey);
+            renderDashboard(selectedKey);
+        } else {
+            errorDiv.textContent = "Falsches Passwort!";
+            errorDiv.style.display = "block";
+        }
+    }
+
+    function setupFilterDropdown(loggedInKey) {
+        const loggedInPlayer = playersData[loggedInKey];
+        const filterSelect = document.getElementById("adminTeamFilter");
+        const adminFilterContainer = document.getElementById("adminFilterContainer");
+
+        filterSelect.innerHTML = "";
+
+        if (loggedInPlayer.isAdmin) {
+            adminFilterContainer.style.display = "flex";
+            filterSelect.innerHTML = `
+                <option value="all">Alle Mannschaften anzeigen</option>
+                <option value="1. Mannschaft">1. Mannschaft</option>
+                <option value="2. Mannschaft">2. Mannschaft</option>
+                <option value="3. Mannschaft">3. Mannschaft</option>
+                <option value="4. Mannschaft">4. Mannschaft</option>
+            `;
+        } else if (loggedInPlayer.isTC) {
+            adminFilterContainer.style.display = "flex";
+            filterSelect.innerHTML = `
+                <option value="team_all">Alle Spieler der ${loggedInPlayer.mainTeam}</option>
+            `;
+            
+            Object.keys(playersData).forEach(key => {
+                if (playersData[key].mainTeam === loggedInPlayer.mainTeam && !playersData[key].isAdmin) {
+                    let opt = document.createElement("option");
+                    opt.value = key;
+                    opt.textContent = "Karte von: " + playersData[key].name;
+                    filterSelect.appendChild(opt);
+                }
+            });
+        } else {
+            adminFilterContainer.style.display = "none";
+        }
+    }
+
+    function renderDashboard(loggedInKey) {
+        const container = document.getElementById("cardsContainer");
+        container.innerHTML = "";
+
+        const loggedInPlayer = playersData[loggedInKey];
+        const titleEl = document.getElementById("dashboardTitle");
+        const adminFilterContainer = document.getElementById("adminFilterContainer");
+        const filterSelect = document.getElementById("adminTeamFilter");
+
+        if (loggedInPlayer.isAdmin) {
+            adminFilterContainer.style.display = "flex";
+            const selectedTeamFilter = filterSelect.value;
+            
+            titleEl.textContent = selectedTeamFilter === "all" 
+                ? "Admin-Dashboard — Alle Mannschaften" 
+                : `Admin-Dashboard — ${selectedTeamFilter}`;
+
+            const teamOrder = ["1. Mannschaft", "2. Mannschaft", "3. Mannschaft", "4. Mannschaft"];
+            
+            teamOrder.forEach(teamName => {
+                if (selectedTeamFilter !== "all" && selectedTeamFilter !== teamName) return;
+
+                const teamPlayerKeys = Object.keys(playersData).filter(key => {
+                    if (key === "admin") return false;
+                    return playersData[key].mainTeam === teamName;
+                });
+
+                if (teamPlayerKeys.length > 0) {
+                    let sectionTitle = document.createElement("div");
+                    sectionTitle.className = "team-section-title";
+                    sectionTitle.textContent = teamName;
+                    container.appendChild(sectionTitle);
+
+                    teamPlayerKeys.forEach(key => {
+                        container.appendChild(createPlayerCardElement(key));
+                    });
+                }
+            });
+        } else if (loggedInPlayer.isTC) {
+            adminFilterContainer.style.display = "flex";
+            const selectedVal = filterSelect.value;
+
+            if (selectedVal === "team_all" || !selectedVal) {
+                titleEl.textContent = `Teamcaptain Ansicht — ${loggedInPlayer.mainTeam}`;
+
+                let sectionTitle = document.createElement("div");
+                sectionTitle.className = "team-section-title";
+                sectionTitle.textContent = `Spielerkarten: ${loggedInPlayer.mainTeam}`;
+                container.appendChild(sectionTitle);
+
+                const teamPlayerKeys = Object.keys(playersData).filter(key => {
+                    return playersData[key].mainTeam === loggedInPlayer.mainTeam && !playersData[key].isAdmin;
+                });
+
+                teamPlayerKeys.forEach(key => {
+                    container.appendChild(createPlayerCardElement(key));
+                });
+            } else {
+                titleEl.textContent = `Spielerkarte — ${playersData[selectedVal].name}`;
+                container.appendChild(createPlayerCardElement(selectedVal));
+            }
+        } else {
+            adminFilterContainer.style.display = "none";
+            titleEl.textContent = "Deine Spielerkarte";
+            container.appendChild(createPlayerCardElement(loggedInKey));
+        }
+    }
+
+    function createPlayerCardElement(playerKey) {
+        const player = playersData[playerKey];
+        
+        let cardDiv = document.createElement("div");
+        cardDiv.className = "player-card";
+
+        let targetName = player.name;
+        let mainTeam = player.mainTeam;
+
+        let playerPhotoSrc = PLAYER_PHOTOS[targetName] ? PLAYER_PHOTOS[targetName] : DEFAULT_AVATAR;
+
+        let mainStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], highFinish: 0, highFinishIsDoppel: false, count180: 0, count180Doppel: 0, allShortLegs: [], totalDartsWonLegs: 0, s60: 0, s80: 0, s100: 0, s140: 0 };
+        let subStats = { teamName: "", matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [] };
+        
+        let matchHistory = [];
+
+        globalMatchesData.forEach(match => {
+            let isDoppel = match.block && match.block.toLowerCase().includes('doppel');
+
+            if (isDoppel) {
+                let isSubDoppel = (!player.isAdmin && match.mannschaft !== mainTeam);
+                if (!isSubDoppel || player.isAdmin) {
+                    let pairNames = match.spielerKapellen ? match.spielerKapellen.toLowerCase() : "";
+                    let isPlayerInPair = pairNames.includes(targetName.toLowerCase());
+
+                    if (isPlayerInPair) {
+                        if (match.darts) {
+                            match.darts.split(",").forEach(dStr => {
+                                let d = parseInt(dStr.trim());
+                                if (!isNaN(d) && d > 0 && d <= 18) {
+                                    mainStats.allShortLegs.push({ darts: d, isDoppel: true });
+                                }
+                            });
+                        }
+
+                        if (match.r180er && match.r180er.toLowerCase().includes(targetName.toLowerCase())) {
+                            let match180Val = parseInt(match.r180er) || 1;
+                            mainStats.count180 += match180Val;
+                            mainStats.count180Doppel += match180Val;
+                        }
+
+                        if (match.hf && match.hf.toLowerCase().includes(targetName.toLowerCase())) {
+                            let matchHfVal = parseInt(match.hf) || 0;
+                            if (matchHfVal > mainStats.highFinish) {
+                                mainStats.highFinish = matchHfVal;
+                                mainStats.highFinishIsDoppel = true;
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (match.spielerKapellen === targetName) {
+                let isSub = (!player.isAdmin && match.mannschaft !== mainTeam);
+                let currentStats = isSub ? subStats : mainStats;
+
+                if (isSub) subStats.teamName = match.mannschaft;
+                currentStats.matches++;
+
+                let matchLegsWon = 0;
+                let isWon = false;
+                if (match.ergebnisSpiel) {
+                    let parts = match.ergebnisSpiel.split(":");
+                    let gLegs = parseInt(parts[0]) || 0;
+                    let vLegs = parseInt(parts[1]) || 0;
+                    currentStats.legsWon += gLegs;
+                    currentStats.legsLost += vLegs;
+                    if (gLegs > vLegs) {
+                        currentStats.won++;
+                        isWon = true;
+                    } else {
+                        currentStats.lost++;
+                    }
+
+                    if (!isSub || player.isAdmin) {
+                        matchLegsWon = gLegs;
+                    }
+                }
+
+                let matchAvg = parseFloat(match.avg) || 0;
+                if (match.avg) {
+                    currentStats.avgs.push(matchAvg);
+                }
+
+                if (!isSub || player.isAdmin) {
+                    let parts = match.ergebnisSpiel ? match.ergebnisSpiel.split(":") : [0,0];
+                    let ownL = parts.length === 2 ? parseInt(parts[0]) || 0 : 0;
+                    let oppL = parts.length === 2 ? parseInt(parts[1]) || 0 : 0;
+
+                    matchHistory.push({
+                        spieltag: match.spieltag || "",
+                        datum: match.datum || "",
+                        gegner: match.gegnerMannschaft || "Unbekannt",
+                        ergebnis: match.ergebnisSpiel || "-",
+                        avg: matchAvg,
+                        won: isWon,
+                        ownLegs: ownL,
+                        oppLegs: oppL
+                    });
+
+                    let matchDartsList = [];
+                    if (match.darts) {
+                        match.darts.split(",").forEach(dStr => {
+                            let d = parseInt(dStr.trim());
+                            if (!isNaN(d) && d > 0) {
+                                matchDartsList.push(d);
+                                if (d <= 18) {
+                                    mainStats.allShortLegs.push({ darts: d, isDoppel: false });
+                                }
+                            }
+                        });
+                    }
+
+                    if (matchLegsWon > 0 && matchDartsList.length > 0) {
+                        for (let i = 0; i < Math.min(matchLegsWon, matchDartsList.length); i++) {
+                            mainStats.totalDartsWonLegs += matchDartsList[i];
+                        }
+                    }
+
+                    mainStats.count180 += parseInt(match.r180er) || 0;
+                    let hf = parseInt(match.hf) || 0;
+                    if (hf > mainStats.highFinish) {
+                        mainStats.highFinish = hf;
+                        mainStats.highFinishIsDoppel = false;
+                    }
+
+                    mainStats.s60 += parseInt(match.s60) || 0;
+                    mainStats.s80 += parseInt(match.s80) || 0;
+                    mainStats.s100 += parseInt(match.s100) || 0;
+                    mainStats.s140 += parseInt(match.s140) || 0;
+                }
+            }
+        });
+
+        mainStats.allShortLegs.sort((a, b) => a.darts - b.darts);
+        let bestShortLegVal = mainStats.allShortLegs.length > 0 ? mainStats.allShortLegs[0].darts : 999;
+
+        let totalMainLegs = mainStats.legsWon + mainStats.legsLost;
+        let legDiff = mainStats.legsWon - mainStats.legsLost;
+        let legDiffClass = legDiff > 0 ? "diff-pos" : (legDiff < 0 ? "diff-neg" : "diff-zero");
+        let legDiffFormatted = legDiff > 0 ? `(+${legDiff})` : `(${legDiff})`;
+
+        let winRate = mainStats.matches > 0 ? ((mainStats.won / mainStats.matches) * 100).toFixed(1) : 0;
+        let legRate = totalMainLegs > 0 ? ((mainStats.legsWon / totalMainLegs) * 100).toFixed(1) : 0;
+        let avgMain = mainStats.avgs.length > 0 ? (mainStats.avgs.reduce((a,b)=>a+b, 0) / mainStats.avgs.length).toFixed(2) : "0.00";
+        
+        let dartsPerLeg = (mainStats.legsWon > 0 && mainStats.totalDartsWonLegs > 0) 
+            ? Math.round(mainStats.totalDartsWonLegs / mainStats.legsWon) 
+            : "-";
+
+        let shortLegsHtml = "-";
+        if (mainStats.allShortLegs.length > 0) {
+            shortLegsHtml = `<div class="shortlegs-container">` + 
+                mainStats.allShortLegs.map(item => {
+                    let isBest = (item.darts === bestShortLegVal);
+                    let displayLabel = item.darts + (item.isDoppel ? '<span style="font-size:0.65rem; opacity:0.8;">[D]</span>' : '');
+                    let titleAttr = item.isDoppel ? ' title="Aus Doppel-Spiel"' : '';
+                    return `<span class="shortleg-badge ${isBest ? 'best-shortleg' : ''}"${titleAttr}>${displayLabel}</span>`;
+                }).join('') + 
+                `</div>`;
+        }
+
+        let historyHtml = "-";
+        if (matchHistory.length > 0) {
+            let recentMatches = matchHistory.slice(-8);
+            historyHtml = `<div class="history-list">` + 
+                recentMatches.map(m => {
+                    let cls = m.won ? "history-win" : "history-loss";
+                    let titleText = `${m.gegner}: ${m.ergebnis} (Avg: ${m.avg})`;
+                    let letter = m.won ? "S" : "N";
+                    return `<div class="history-badge ${cls}" title="${titleText}">${letter}</div>`;
+                }).join('') + `</div>`;
+        }
+
+        let bestGameHtml = "<div style='color: var(--text-muted);'>Noch keine Spiele vorhanden.</div>";
+        let worstGameHtml = "<div style='color: var(--text-muted);'>Noch keine Spiele vorhanden.</div>";
+
+        if (matchHistory.length > 0) {
+            let validGames = matchHistory.filter(m => m.avg > 0);
+            if (validGames.length > 0) {
+                let bestCandidates = [...validGames].sort((a, b) => {
+                    let aWon = a.ownLegs > a.oppLegs;
+                    let bWon = b.ownLegs > b.oppLegs;
+                    if (aWon !== bWon) return aWon ? -1 : 1;
+                    return b.avg - a.avg;
+                });
+                let best = bestCandidates[0];
+
+                let worstCandidates = [...validGames].sort((a, b) => {
+                    let aLost = a.ownLegs < a.oppLegs;
+                    let bLost = b.ownLegs < b.oppLegs;
+                    if (aLost !== bLost) return aLost ? -1 : 1;
+                    return a.avg - b.avg;
+                });
+                let worst = worstCandidates[0];
+
+                bestGameHtml = `
+                    <div style="font-weight: bold; color: var(--text-main); margin-bottom: 2px;">${best.gegner}</div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                        <span>${best.spieltag || best.datum || 'Match'}</span>
+                        <strong style="color: var(--green);">Avg: ${best.avg.toFixed(2)} (${best.ergebnis})</strong>
+                    </div>
+                `;
+
+                worstGameHtml = `
+                    <div style="font-weight: bold; color: var(--text-main); margin-bottom: 2px;">${worst.gegner}</div>
+                    <div style="display: flex; justify-content: space-between; color: var(--text-muted);">
+                        <span>${worst.spieltag || worst.datum || 'Match'}</span>
+                        <strong style="color: var(--red);">Avg: ${worst.avg.toFixed(2)} (${worst.ergebnis})</strong>
+                    </div>
+                `;
+            }
+        }
+
+        let subHtml = "";
+        if (!player.isAdmin && subStats.matches > 0) {
+            let avgSub = subStats.avgs.length > 0 ? (subStats.avgs.reduce((a,b)=>a+b, 0) / subStats.avgs.length).toFixed(2) : "0.00";
+            subHtml = `
+                <div class="stats-section">
+                    <div class="stats-title">Aushilfseinsatz — ${subStats.teamName}</div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <label>Matches</label>
+                            <div class="stat-value">${subStats.matches}</div>
+                            <label style="margin-top: 10px;">Bilanz (G : V)</label>
+                            <div class="stat-value"><span class="win-bilanz">${subStats.won}</span> : <span class="loss-bilanz">${subStats.lost}</span></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Avg</label>
+                            <div class="stat-value"><span class="highlight-bg">${avgSub}</span></div>
+                            <label style="margin-top: 10px;">Legs (Gew : Verl)</label>
+                            <div class="stat-value" style="font-size: 1.2rem; margin-top: 4px;">${subStats.legsWon} : ${subStats.legsLost}</div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        let hfDisplay = "-";
+        if (mainStats.highFinish > 0) {
+            hfDisplay = mainStats.highFinish + (mainStats.highFinishIsDoppel ? ' <span style="font-size:0.75rem; color:var(--text-muted);" title="Aus Doppel-Spiel">[D]</span>' : '');
+        }
+
+        let count180Display = mainStats.count180;
+        if (mainStats.count180Doppel > 0) {
+            count180Display += ` <span style="font-size:0.7rem; color:var(--text-muted);" title="${mainStats.count180Doppel} aus Doppel">[D:${mainStats.count180Doppel}]</span>`;
+        }
+
+        cardDiv.innerHTML = `
+            <div class="player-header">
+                <div class="player-header-info">
+                    <h2 class="player-name">${player.name}</h2>
+                    <div class="player-club">TV Kapellen 1919 e.V.</div>
+                    <div class="player-meta">Saison 2026/2027 • Stammteam: ${player.mainTeam}</div>
+                </div>
+                <div class="player-images-container">
+                    <img src="${playerPhotoSrc}" alt="${player.name}" class="card-player-photo" onerror="this.onerror=null; this.src=DEFAULT_AVATAR;">
+                    <img src="${LOGO_URL}" alt="TV Kapellen Logo" class="card-player-logo">
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">${player.isAdmin ? "Gesamtübersicht — Leistungsdaten (Alle Teams)" : player.mainTeam + " — Leistungsdaten"}</div>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <label>Matches Gesamt</label>
+                        <div class="stat-value">${mainStats.matches}</div>
+                        <label style="margin-top: 10px;">Bilanz (G : V)</label>
+                        <div class="stat-value"><span class="win-bilanz">${mainStats.won}</span> : <span class="loss-bilanz">${mainStats.lost}</span></div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Win-Rate (${winRate}%)</div>
+                        <div class="progress-bar"><div class="progress-fill-green" style="width: ${winRate}%;"></div></div>
+                    </div>
+                    <div class="stat-box">
+                        <label>Avg (Punkteschnitt)</label>
+                        <div class="stat-value"><span class="highlight-bg">${avgMain}</span></div>
+                        <label style="margin-top: 10px;">Legs (Gew : Verl)</label>
+                        <div class="stat-value" style="font-size: 1.2rem; margin-top: 4px;">${mainStats.legsWon} : ${mainStats.legsLost} <span class="${legDiffClass}">${legDiffFormatted}</span></div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Leg-Rate (${legRate}%)</div>
+                        <div class="progress-bar"><div class="progress-fill-blue" style="width: ${legRate}%;"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Saisonverlauf / Trend (Letzten Spiele)</div>
+                <div>${historyHtml}</div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stats-title">Top- & Flop-Spiel (nach Sieg/Niederlage & Avg)</div>
+                <div class="game-highlights-grid">
+                    <div class="game-highlight-card best">
+                        <div class="game-highlight-title">⭐ Bestes Spiel</div>
+                        ${bestGameHtml}
+                    </div>
+                    <div class="game-highlight-card worst">
+                        <div class="game-highlight-title">⚠️ Schwächstes Spiel</div>
+                        ${worstGameHtml}
+                    </div>
+                </div>
+            </div>
+
+            ${subHtml}
+
+            <div class="highlights-box">
+                <div class="highlight-item">
+                    <span>High-Finish</span>
+                    <strong>${hfDisplay}</strong>
+                </div>
+                <div class="highlight-item">
+                    <span>180er</span>
+                    <strong>${count180Display}</strong>
+                </div>
+                <div class="highlight-item">
+                    <span>Darts / Leg (Gew.)</span>
+                    <strong>${dartsPerLeg}</strong>
+                </div>
+                <div class="highlight-item">
+                    <span>Short Legs (≤ 18)</span>
+                    <div style="margin-top: 2px;">${shortLegsHtml}</div>
+                </div>
+            </div>
+
+            <div class="scores-grid">
+                <div class="score-box"><span>60+</span><strong>${mainStats.s60}</strong></div>
+                <div class="score-box"><span>80+</span><strong>${mainStats.s80}</strong></div>
+                <div class="score-box"><span>100+</span><strong>${mainStats.s100}</strong></div>
+                <div class="score-box highlight-140"><span>140+</span><strong>${mainStats.s140}</strong></div>
+            </div>
+        `;
+
+        return cardDiv;
+    }
+
+    function logout() {
+        sessionStorage.removeItem("tvk_logged_in_user");
+        document.getElementById("dashboardView").style.display = "none";
+        document.getElementById("loginCard").style.display = "block";
+        document.getElementById("playerPassword").value = "";
+    }
+</script>
+
+</body>
+</html>
