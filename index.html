@@ -784,54 +784,77 @@
 
         let playerPhotoSrc = PLAYER_PHOTOS[targetName] ? PLAYER_PHOTOS[targetName] : DEFAULT_AVATAR;
 
+        // Statistiken für das Stammteam (Haupt-Leistungsdaten)
         let mainStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], highFinish: 0, highFinishIsDoppel: false, count180: 0, count180Doppel: 0, allShortLegs: [], totalDartsWonLegs: 0, s60: 0, s80: 0, s100: 0, s140: 0 };
-        let subStats = { teamName: "", matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [] };
-        
         let matchHistory = [];
+
+        // Statistiken für den Aushilfseinsatz (nur wenn in einer anderen Mannschaft gespielt)
+        let subStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], teamName: "" };
+        let hasSubMatch = false;
 
         globalMatchesData.forEach(match => {
             let isDoppel = match.block && match.block.toLowerCase().includes('doppel');
 
             if (isDoppel) {
-                let isSubDoppel = (!player.isAdmin && match.mannschaft !== mainTeam);
-                if (!isSubDoppel || player.isAdmin) {
-                    let pairNames = match.spielerKapellen ? match.spielerKapellen.toLowerCase() : "";
-                    let isPlayerInPair = pairNames.includes(targetName.toLowerCase());
+                let pairNames = match.spielerKapellen ? match.spielerKapellen.toLowerCase() : "";
+                let isPlayerInPair = pairNames.includes(targetName.toLowerCase());
 
-                    if (isPlayerInPair) {
-                        if (match.darts) {
-                            match.darts.split(/[,|\/-]/).forEach(dStr => {
-                                let d = parseInt(dStr.trim());
-                                if (!isNaN(d) && d > 0 && d <= 18) {
-                                    mainStats.allShortLegs.push({ darts: d, isDoppel: true });
-                                }
-                            });
-                        }
+                if (isPlayerInPair) {
+                    let isSub = match.mannschaft !== mainTeam;
+                    let targetStats = isSub ? subStats : mainStats;
 
-                        if (match.r180er && match.r180er.toLowerCase().includes(targetName.toLowerCase())) {
-                            let match180Val = parseInt(match.r180er) || 1;
-                            mainStats.count180 += match180Val;
-                            mainStats.count180Doppel += match180Val;
-                        }
+                    targetStats.matches++;
+                    if (isSub) {
+                        hasSubMatch = true;
+                        subStats.teamName = match.mannschaft;
+                    }
 
-                        if (match.hf && match.hf.toLowerCase().includes(targetName.toLowerCase())) {
-                            let matchHfVal = parseInt(match.hf) || 0;
-                            if (matchHfVal > mainStats.highFinish) {
-                                mainStats.highFinish = matchHfVal;
-                                mainStats.highFinishIsDoppel = true;
+                    if (match.ergebnisSpiel) {
+                        let parts = match.ergebnisSpiel.split(":");
+                        let gLegs = parseInt(parts[0]) || 0;
+                        let vLegs = parseInt(parts[1]) || 0;
+                        targetStats.legsWon += gLegs;
+                        targetStats.legsLost += vLegs;
+                        if (gLegs > vLegs) targetStats.won++;
+                        else targetStats.lost++;
+                    }
+
+                    if (!isSub && match.darts) {
+                        match.darts.split(/[,|\/-]/).forEach(dStr => {
+                            let d = parseInt(dStr.trim());
+                            if (!isNaN(d) && d > 0 && d <= 18) {
+                                mainStats.allShortLegs.push({ darts: d, isDoppel: true });
                             }
+                        });
+                    }
+
+                    if (!isSub && match.r180er && match.r180er.toLowerCase().includes(targetName.toLowerCase())) {
+                        let match180Val = parseInt(match.r180er) || 1;
+                        mainStats.count180 += match180Val;
+                        mainStats.count180Doppel += match180Val;
+                    }
+
+                    if (!isSub && match.hf && match.hf.toLowerCase().includes(targetName.toLowerCase())) {
+                        let matchHfVal = parseInt(match.hf) || 0;
+                        if (matchHfVal > mainStats.highFinish) {
+                            mainStats.highFinish = matchHfVal;
+                            mainStats.highFinishIsDoppel = true;
                         }
                     }
                 }
                 return;
             }
 
+            // Einzel-Spiele
             if (match.spielerKapellen === targetName) {
-                let isSub = (!player.isAdmin && match.mannschaft !== mainTeam);
-                let currentStats = isSub ? subStats : mainStats;
+                let isSub = match.mannschaft !== mainTeam;
+                let targetStats = isSub ? subStats : mainStats;
 
-                if (isSub) subStats.teamName = match.mannschaft;
-                currentStats.matches++;
+                targetStats.matches++;
+                if (isSub) {
+                    hasSubMatch = true;
+                    subStats.teamName = match.mannschaft;
+                }
 
                 let matchLegsWon = 0;
                 let isWon = false;
@@ -839,26 +862,24 @@
                     let parts = match.ergebnisSpiel.split(":");
                     let gLegs = parseInt(parts[0]) || 0;
                     let vLegs = parseInt(parts[1]) || 0;
-                    currentStats.legsWon += gLegs;
-                    currentStats.legsLost += vLegs;
+                    targetStats.legsWon += gLegs;
+                    targetStats.legsLost += vLegs;
                     if (gLegs > vLegs) {
-                        currentStats.won++;
+                        targetStats.won++;
                         isWon = true;
                     } else {
-                        currentStats.lost++;
+                        targetStats.lost++;
                     }
-
-                    if (!isSub || player.isAdmin) {
-                        matchLegsWon = gLegs;
-                    }
+                    matchLegsWon = gLegs;
                 }
 
                 let matchAvg = parseFloat(match.avg) || 0;
                 if (match.avg) {
-                    currentStats.avgs.push(matchAvg);
+                    targetStats.avgs.push(matchAvg);
                 }
 
-                if (!isSub || player.isAdmin) {
+                // Nur für das Stammteam die Detail-Historie & Bestleistungen pflegen
+                if (!isSub) {
                     let parts = match.ergebnisSpiel ? match.ergebnisSpiel.split(":") : [0,0];
                     let ownL = parts.length === 2 ? parseInt(parts[0]) || 0 : 0;
                     let oppL = parts.length === 2 ? parseInt(parts[1]) || 0 : 0;
@@ -880,7 +901,6 @@
                             let d = parseInt(dStr.trim());
                             if (!isNaN(d) && d > 0) {
                                 matchDartsList.push(d);
-                                // KORRIGIERT: Hier ebenfalls nur echte Short Legs (<= 18 Darts) übernehmen!
                                 if (d <= 18) {
                                     mainStats.allShortLegs.push({ darts: d, isDoppel: false });
                                 }
@@ -964,9 +984,9 @@
                 let best = bestCandidates[0];
 
                 let worstCandidates = [...validGames].sort((a, b) => {
-                    let aLost = a.ownLegs < a.oppLegs;
-                    let bLost = b.ownLegs < b.oppLegs;
-                    if (aLost !== bLost) return aLost ? -1 : 1;
+                    let aLostMatch = a.ownLegs < a.oppLegs;
+                    let bLostMatch = b.ownLegs < b.oppLegs;
+                    if (aLostMatch !== bLostMatch) return aLostMatch ? -1 : 1;
                     return a.avg - b.avg;
                 });
                 let worst = worstCandidates[0];
@@ -989,29 +1009,6 @@
             }
         }
 
-        let subHtml = "";
-        if (!player.isAdmin && subStats.matches > 0) {
-            let avgSub = subStats.avgs.length > 0 ? (subStats.avgs.reduce((a,b)=>a+b, 0) / subStats.avgs.length).toFixed(2) : "0.00";
-            subHtml = `
-                <div class="stats-section">
-                    <div class="stats-title">Aushilfseinsatz — ${subStats.teamName}</div>
-                    <div class="stats-grid">
-                        <div class="stat-box">
-                            <label>Matches</label>
-                            <div class="stat-value">${subStats.matches}</div>
-                            <label style="margin-top: 10px;">Bilanz (G : V)</label>
-                            <div class="stat-value"><span class="win-bilanz">${subStats.won}</span> : <span class="loss-bilanz">${subStats.lost}</span></div>
-                        </div>
-                        <div class="stat-box">
-                            <label>Avg</label>
-                            <div class="stat-value"><span class="highlight-bg">${avgSub}</span></div>
-                            <label style="margin-top: 10px;">Legs (Gew : Verl)</label>
-                            <div class="stat-value" style="font-size: 1.2rem; margin-top: 4px;">${subStats.legsWon} : ${subStats.legsLost}</div>
-                        </div>
-                    </div>
-                </div>`;
-        }
-
         let hfDisplay = "-";
         if (mainStats.highFinish > 0) {
             hfDisplay = mainStats.highFinish + (mainStats.highFinishIsDoppel ? ' <span style="font-size:0.75rem; color:var(--text-muted);" title="Aus Doppel-Spiel">[D]</span>' : '');
@@ -1020,6 +1017,31 @@
         let count180Display = mainStats.count180;
         if (mainStats.count180Doppel > 0) {
             count180Display += ` <span style="font-size:0.7rem; color:var(--text-muted);" title="${mainStats.count180Doppel} aus Doppel">[D:${mainStats.count180Doppel}]</span>`;
+        }
+
+        // Aushilfs-Sektion nur einfügen, wenn tatsächlich Aushilfsspiele vorliegen
+        let subSectionHtml = "";
+        if (hasSubMatch) {
+            let subAvg = subStats.avgs.length > 0 ? (subStats.avgs.reduce((a,b)=>a+b,0)/subStats.avgs.length).toFixed(2) : "0.00";
+            subSectionHtml = `
+                <div class="stats-section" style="border: 1px dashed var(--accent-orange); margin-top: 16px;">
+                    <div class="stats-title" style="color: var(--accent-orange);">Aushilfseinsatz — ${subStats.teamName}</div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <label>Matches</label>
+                            <div class="stat-value" style="font-size: 1.2rem;">${subStats.matches}</div>
+                            <label style="margin-top: 8px;">Bilanz (G : V)</label>
+                            <div style="font-size: 1.1rem; font-weight: bold;"><span class="win-bilanz">${subStats.won}</span> : <span class="loss-bilanz">${subStats.lost}</span></div>
+                        </div>
+                        <div class="stat-box">
+                            <label>Avg (Schnitt)</label>
+                            <div class="stat-value" style="font-size: 1.2rem;">${subAvg}</div>
+                            <label style="margin-top: 8px;">Legs (Gew : Verl)</label>
+                            <div style="font-size: 1.1rem; font-weight: bold;">${subStats.legsWon} : ${subStats.legsLost}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         cardDiv.innerHTML = `
@@ -1036,7 +1058,7 @@
             </div>
 
             <div class="stats-section">
-                <div class="stats-title">${player.isAdmin ? "Gesamtübersicht — Leistungsdaten (Alle Teams)" : player.mainTeam + " — Leistungsdaten"}</div>
+                <div class="stats-title">Leistungsdaten (${player.mainTeam})</div>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <label>Matches Gesamt</label>
@@ -1057,6 +1079,8 @@
                 </div>
             </div>
 
+            ${subSectionHtml}
+
             <div class="stats-section">
                 <div class="stats-title">Saisonverlauf / Trend (Letzten Spiele)</div>
                 <div>${historyHtml}</div>
@@ -1075,8 +1099,6 @@
                     </div>
                 </div>
             </div>
-
-            ${subHtml}
 
             <div class="highlights-box">
                 <div class="highlight-item">
