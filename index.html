@@ -597,7 +597,6 @@
 
     async function fetchAllSupabaseData() {
         globalMatchesData = [];
-        // Hier ist die Zuordnung korrigiert: 'spieltage' gehört zur 3. Mannschaft!
         const teamConfigs = [
             { name: "3. Mannschaft", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
             { name: "2. Mannschaft", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
@@ -611,7 +610,7 @@
                     .from(cfg.tableSpieltage)
                     .select(`*, ${cfg.tableMatches} (*, ${cfg.tableScoring} (*))`);
 
-                if (error) continue; // Falls eine Tabelle nicht existiert, überspringen ohne abzustürzen
+                if (error) continue;
 
                 if (data) {
                     data.forEach(st => {
@@ -804,7 +803,7 @@
 
         let playerPhotoSrc = PLAYER_PHOTOS[targetName] ? PLAYER_PHOTOS[targetName] : DEFAULT_AVATAR;
 
-        let mainStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], highFinish: 0, highFinishIsDoppel: false, count180: 0, count180Doppel: 0, allShortLegs: [], totalDartsWonLegs: 0, s60: 0, s80: 0, s100: 0, s140: 0 };
+        let mainStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], highFinish: 0, count180: 0, allShortLegs: [], totalDartsWonLegs: 0, s60: 0, s80: 0, s100: 0, s140: 0 };
         let matchHistory = [];
 
         let subStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], teamName: "" };
@@ -813,54 +812,8 @@
         globalMatchesData.forEach(match => {
             let isDoppel = match.block && match.block.toLowerCase().includes('doppel');
 
+            // Doppel-Spiele werden vollständig ignoriert
             if (isDoppel) {
-                let pairNames = match.spielerKapellen ? match.spielerKapellen.toLowerCase() : "";
-                let isPlayerInPair = pairNames.includes(targetName.toLowerCase());
-
-                if (isPlayerInPair) {
-                    let actualTeam = PLAYER_TEAM_MAP[targetName] || mainTeam;
-                    let isSub = match.mannschaft !== actualTeam;
-                    let targetStats = isSub ? subStats : mainStats;
-
-                    targetStats.matches++;
-                    if (isSub) {
-                        hasSubMatch = true;
-                        subStats.teamName = match.mannschaft;
-                    }
-
-                    if (match.ergebnisSpiel) {
-                        let parts = match.ergebnisSpiel.split(":");
-                        let gLegs = parseInt(parts[0]) || 0;
-                        let vLegs = parseInt(parts[1]) || 0;
-                        targetStats.legsWon += gLegs;
-                        targetStats.legsLost += vLegs;
-                        if (gLegs > vLegs) targetStats.won++;
-                        else targetStats.lost++;
-                    }
-
-                    if (!isSub && match.darts) {
-                        match.darts.split(/[,|\/-]/).forEach(dStr => {
-                            let d = parseInt(dStr.trim());
-                            if (!isNaN(d) && d > 0 && d <= 18) {
-                                mainStats.allShortLegs.push({ darts: d, isDoppel: true });
-                            }
-                        });
-                    }
-
-                    if (!isSub && match.r180er && match.r180er.toLowerCase().includes(targetName.toLowerCase())) {
-                        let match180Val = parseInt(match.r180er) || 1;
-                        mainStats.count180 += match180Val;
-                        mainStats.count180Doppel += match180Val;
-                    }
-
-                    if (!isSub && match.hf && match.hf.toLowerCase().includes(targetName.toLowerCase())) {
-                        let matchHfVal = parseInt(match.hf) || 0;
-                        if (matchHfVal > mainStats.highFinish) {
-                            mainStats.highFinish = matchHfVal;
-                            mainStats.highFinishIsDoppel = true;
-                        }
-                    }
-                }
                 return;
             }
 
@@ -921,7 +874,7 @@
                             if (!isNaN(d) && d > 0) {
                                 matchDartsList.push(d);
                                 if (d <= 18) {
-                                    mainStats.allShortLegs.push({ darts: d, isDoppel: false });
+                                    mainStats.allShortLegs.push({ darts: d });
                                 }
                             }
                         });
@@ -937,7 +890,6 @@
                     let hf = parseInt(match.hf) || 0;
                     if (hf > mainStats.highFinish) {
                         mainStats.highFinish = hf;
-                        mainStats.highFinishIsDoppel = false;
                     }
 
                     mainStats.s60 += parseInt(match.s60) || 0;
@@ -969,9 +921,7 @@
             shortLegsHtml = `<div class="shortlegs-container">` + 
                 mainStats.allShortLegs.map(item => {
                     let isBest = (item.darts === bestShortLegVal);
-                    let displayLabel = item.darts + (item.isDoppel ? '<span style="font-size:0.65rem; opacity:0.8;">[D]</span>' : '');
-                    let titleAttr = item.isDoppel ? ' title="Aus Doppel-Spiel"' : '';
-                    return `<span class="shortleg-badge ${isBest ? 'best-shortleg' : ''}"${titleAttr}>${displayLabel}</span>`;
+                    return `<span class="shortleg-badge ${isBest ? 'best-shortleg' : ''}">${item.darts}</span>`;
                 }).join('') + 
                 `</div>`;
         }
@@ -1028,15 +978,8 @@
             }
         }
 
-        let hfDisplay = "-";
-        if (mainStats.highFinish > 0) {
-            hfDisplay = mainStats.highFinish + (mainStats.highFinishIsDoppel ? ' <span style="font-size:0.75rem; color:var(--text-muted);" title="Aus Doppel-Spiel">[D]</span>' : '');
-        }
-
+        let hfDisplay = mainStats.highFinish > 0 ? mainStats.highFinish : "-";
         let count180Display = mainStats.count180;
-        if (mainStats.count180Doppel > 0) {
-            count180Display += ` <span style="font-size:0.7rem; color:var(--text-muted);" title="${mainStats.count180Doppel} aus Doppel">[D:${mainStats.count180Doppel}]</span>`;
-        }
 
         let subSectionHtml = "";
         if (hasSubMatch) {
@@ -1078,7 +1021,7 @@
             </div>
 
             <div class="stats-section">
-                <div class="stats-title">Leistungsdaten (${displayTeam})</div>
+                <div class="stats-title">Leistungsdaten (${displayTeam}) — Nur Einzel</div>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <label>Matches Gesamt</label>
