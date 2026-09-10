@@ -587,7 +587,6 @@
 
         for (const cfg of teamConfigs) {
             try {
-                // Lade Spieltage inklusive Matches und Scoring-Stats über Foreign Key Beziehungen
                 const { data, error } = await supabaseClient
                     .from(cfg.tableSpieltage)
                     .select(`*, ${cfg.tableMatches} (*, ${cfg.tableScoring} (*))`);
@@ -801,8 +800,9 @@
 
                     if (isPlayerInPair) {
                         if (match.darts) {
-                            match.darts.split(",").forEach(dStr => {
+                            match.darts.split(/[,|\/-]/).forEach(dStr => {
                                 let d = parseInt(dStr.trim());
+                                // Korrigiert: Nur Werte <= 18 als Short Leg zählen
                                 if (!isNaN(d) && d > 0 && d <= 18) {
                                     mainStats.allShortLegs.push({ darts: d, isDoppel: true });
                                 }
@@ -877,10 +877,11 @@
 
                     let matchDartsList = [];
                     if (match.darts) {
-                        match.darts.split(",").forEach(dStr => {
+                        match.darts.split(/[,|\/-]/).forEach(dStr => {
                             let d = parseInt(dStr.trim());
                             if (!isNaN(d) && d > 0) {
                                 matchDartsList.push(d);
+                                // Korrigiert: Nur echte Short Legs (<= 18 Darts) in das Short-Leg-Array aufnehmen
                                 if (d <= 18) {
                                     mainStats.allShortLegs.push({ darts: d, isDoppel: false });
                                 }
