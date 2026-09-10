@@ -483,6 +483,25 @@
     const LOGO_URL = "https://lh3.googleusercontent.com/d/1PB4X2QrrMlaRlajQEWDtJxRP2c6VTsI5";
     const DEFAULT_AVATAR = "https://lh3.googleusercontent.com/d/1rc673IU4jw2wEE--AIDUS-AfTCmDG9Tw";
 
+    const PLAYER_TEAM_MAP = {
+        "Patrick Seitz": "1. Mannschaft", "Tim Siegel": "1. Mannschaft", "Sascha Bien": "1. Mannschaft", "Dominik Helmke": "1. Mannschaft",
+        "Stefan Melcher": "1. Mannschaft", "Jan Krabbe": "1. Mannschaft", "Fabio Padovano": "1. Mannschaft", "Dirk Kraus": "1. Mannschaft",
+        "Robert Geyer": "1. Mannschaft", "Joel Wielinski": "1. Mannschaft", "Denis Vanzidler": "1. Mannschaft",
+        
+        "Florian Weindorf": "2. Mannschaft", "Daniel Simanowitz": "2. Mannschaft", "Danny Voß": "2. Mannschaft", "Markus Elgersma": "2. Mannschaft",
+        "Markus Thiele": "2. Mannschaft", "Christian Schreiber": "2. Mannschaft", "Dominik Herz": "2. Mannschaft", "Thomas Franzen": "2. Mannschaft",
+        "Philip Möller": "2. Mannschaft", "Holger Weberpold": "2. Mannschaft", "Andre Pogoda": "2. Mannschaft",
+        
+        "Jürgen Schützendorf": "3. Mannschaft", "Niklas Weichert": "3. Mannschaft", "Wolfram Senger": "3. Mannschaft", "Ludger Schledorn": "3. Mannschaft",
+        "Thomas Kliver": "3. Mannschaft", "Markus Ginsel": "3. Mannschaft", "Andreas Denner": "3. Mannschaft", "Markus Lenz": "3. Mannschaft",
+        "Florian Hartwich": "3. Mannschaft", "Michael Müller": "3. Mannschaft", "Lars Neutag": "3. Mannschaft", "Yannick Steffes": "3. Mannschaft",
+        "Leon Gerber": "3. Mannschaft", "Gregor Marek": "3. Mannschaft", "Holger Overmeyer": "3. Mannschaft",
+        
+        "Britta Roghmans": "4. Mannschaft", "Scott Jonen": "4. Mannschaft", "Björn Mentzen": "4. Mannschaft", "Lars Hufen": "4. Mannschaft",
+        "Jesper Neutag": "4. Mannschaft", "Brian Müller": "4. Mannschaft", "Leon Overmann": "4. Mannschaft", "Mark Bock": "4. Mannschaft",
+        "Dirk Grunert": "4. Mannschaft", "Friedhelm Schmidt-Cremer": "4. Mannschaft", "Lucas Mentzen": "4. Mannschaft"
+    };
+
     const playersData = {
         "admin": { name: "Jürgen Schützendorf", mainTeam: "3. Mannschaft", password: "admin", isAdmin: true, isTC: false },
         "juergen_s": { name: "Jürgen Schützendorf", mainTeam: "3. Mannschaft", password: "2807", isAdmin: false, isTC: true },
@@ -578,6 +597,7 @@
 
     async function fetchAllSupabaseData() {
         globalMatchesData = [];
+        // Hier korrigieren wir die Zuordnung der Supabase-Tabellen für die jeweiligen Mannschaften:
         const teamConfigs = [
             { name: "1. Mannschaft", tableSpieltage: "spieltage", tableMatches: "matches", tableScoring: "scoring_stats" },
             { name: "2. Mannschaft", tableSpieltage: "spieltage_t2", tableMatches: "matches_t2", tableScoring: "scoring_stats_t2" },
@@ -780,15 +800,13 @@
         cardDiv.className = "player-card";
 
         let targetName = player.name;
-        let mainTeam = player.mainTeam;
+        let mainTeam = PLAYER_TEAM_MAP[targetName] || player.mainTeam;
 
         let playerPhotoSrc = PLAYER_PHOTOS[targetName] ? PLAYER_PHOTOS[targetName] : DEFAULT_AVATAR;
 
-        // Statistiken für das Stammteam (Haupt-Leistungsdaten)
         let mainStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], highFinish: 0, highFinishIsDoppel: false, count180: 0, count180Doppel: 0, allShortLegs: [], totalDartsWonLegs: 0, s60: 0, s80: 0, s100: 0, s140: 0 };
         let matchHistory = [];
 
-        // Statistiken für den Aushilfseinsatz (nur wenn in einer anderen Mannschaft gespielt)
         let subStats = { matches: 0, won: 0, lost: 0, legsWon: 0, legsLost: 0, avgs: [], teamName: "" };
         let hasSubMatch = false;
 
@@ -800,7 +818,8 @@
                 let isPlayerInPair = pairNames.includes(targetName.toLowerCase());
 
                 if (isPlayerInPair) {
-                    let isSub = match.mannschaft !== mainTeam;
+                    let actualTeam = PLAYER_TEAM_MAP[targetName] || mainTeam;
+                    let isSub = match.mannschaft !== actualTeam;
                     let targetStats = isSub ? subStats : mainStats;
 
                     targetStats.matches++;
@@ -847,7 +866,8 @@
 
             // Einzel-Spiele
             if (match.spielerKapellen === targetName) {
-                let isSub = match.mannschaft !== mainTeam;
+                let actualTeam = PLAYER_TEAM_MAP[targetName] || mainTeam;
+                let isSub = match.mannschaft !== actualTeam;
                 let targetStats = isSub ? subStats : mainStats;
 
                 targetStats.matches++;
@@ -878,7 +898,6 @@
                     targetStats.avgs.push(matchAvg);
                 }
 
-                // Nur für das Stammteam die Detail-Historie & Bestleistungen pflegen
                 if (!isSub) {
                     let parts = match.ergebnisSpiel ? match.ergebnisSpiel.split(":") : [0,0];
                     let ownL = parts.length === 2 ? parseInt(parts[0]) || 0 : 0;
@@ -1019,7 +1038,6 @@
             count180Display += ` <span style="font-size:0.7rem; color:var(--text-muted);" title="${mainStats.count180Doppel} aus Doppel">[D:${mainStats.count180Doppel}]</span>`;
         }
 
-        // Aushilfs-Sektion nur einfügen, wenn tatsächlich Aushilfsspiele vorliegen
         let subSectionHtml = "";
         if (hasSubMatch) {
             let subAvg = subStats.avgs.length > 0 ? (subStats.avgs.reduce((a,b)=>a+b,0)/subStats.avgs.length).toFixed(2) : "0.00";
@@ -1044,12 +1062,14 @@
             `;
         }
 
+        let displayTeam = PLAYER_TEAM_MAP[targetName] || mainTeam;
+
         cardDiv.innerHTML = `
             <div class="player-header">
                 <div class="player-header-info">
                     <h2 class="player-name">${player.name}</h2>
                     <div class="player-club">TV Kapellen 1919 e.V.</div>
-                    <div class="player-meta">Saison 2026/2027 • Stammteam: ${player.mainTeam}</div>
+                    <div class="player-meta">Saison 2026/2027 • Stammteam: ${displayTeam}</div>
                 </div>
                 <div class="player-images-container">
                     <img src="${playerPhotoSrc}" alt="${player.name}" class="card-player-photo" onerror="this.onerror=null; this.src=DEFAULT_AVATAR;">
@@ -1058,7 +1078,7 @@
             </div>
 
             <div class="stats-section">
-                <div class="stats-title">Leistungsdaten (${player.mainTeam})</div>
+                <div class="stats-title">Leistungsdaten (${displayTeam})</div>
                 <div class="stats-grid">
                     <div class="stat-box">
                         <label>Matches Gesamt</label>
