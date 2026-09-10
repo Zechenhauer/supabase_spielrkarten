@@ -802,7 +802,6 @@
                         if (match.darts) {
                             match.darts.split(/[,|\/-]/).forEach(dStr => {
                                 let d = parseInt(dStr.trim());
-                                // Korrigiert: Nur Werte <= 18 als Short Leg zählen
                                 if (!isNaN(d) && d > 0 && d <= 18) {
                                     mainStats.allShortLegs.push({ darts: d, isDoppel: true });
                                 }
@@ -881,7 +880,7 @@
                             let d = parseInt(dStr.trim());
                             if (!isNaN(d) && d > 0) {
                                 matchDartsList.push(d);
-                                // Korrigiert: Nur echte Short Legs (<= 18 Darts) in das Short-Leg-Array aufnehmen
+                                // KORRIGIERT: Hier ebenfalls nur echte Short Legs (<= 18 Darts) übernehmen!
                                 if (d <= 18) {
                                     mainStats.allShortLegs.push({ darts: d, isDoppel: false });
                                 }
